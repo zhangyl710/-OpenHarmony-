@@ -1,4 +1,4 @@
-# 星枢 SparkHub
+﻿# 星枢 SparkHub
 
 > 基于 **OpenHarmony** + **MindSpore Lite** 的端侧智能家居系统
 >
@@ -171,7 +171,148 @@ data/raw/                   原始采集日志（19 个 .log，约 1 Hz）
 
 ---
 
-## 七、技术栈
+## 七、数据采集
+
+模型训练需要真实的物理过程日志，不是模拟数据。本项目用两块感知节点按 **1 Hz** 持续上报 MQTT 报文，同时旁路记录成 `.log` 文件。
+
+### 7.1 日志格式
+
+每行一条，时间戳 + 完整 JSON 载荷（**两个节点都记**，构建数据集时按时间对齐）：
+
+```
+2026-10-04T22:43:29+0800 {"node":"N01","temp":29.1,"humi":46.8,"lux":19,"smoke":0,"light":"OFF","motor":"OFF","beep":"OFF"}
+2026-10-04T22:43:29+0800 {"node":"N02","temp":0.0,"humi":0.0,"lux":0,"smoke":2,"light":"OFF","motor":"OFF","beep":"OFF"}
+```
+
+| 字段 | 含义 | 来源 |
+|---|---|---|
+| `node` | `N01`（温湿度板）/ `N02`（烟雾板） | — |
+| `temp` | 温度 ℃ | SHT30 |
+| `humi` | 湿度 %RH | SHT30 |
+| `lux` | 照度 lx | BH1750（仅 N01） |
+| `smoke` | 烟雾 ppm | MQ-2（仅 N02） |
+| `light` / `motor` / `beep` | 执行器状态 | — |
+
+**记录下来**（Windows 端一行命令）：
+
+```powershell
+& "C:\Program Files\mosquitto\mosquitto_sub.exe" -h <Broker地址> -t "sparkhub/data" -v |
+  ForEach-Object { "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:sszzz') $_" } |
+  Tee-Object -FilePath "normal_03.log"
+```
+
+### 7.2 文件命名决定标签
+
+`build_dataset.py` 按**文件名前缀**自动打标签，不需要手工标注：
+
+| 前缀 | 标签 | 场景 |
+|---|---|---|
+| `normal` | 0 正常 | 日常室内，无异常源 |
+| `cooking` / `incense` | 1 油烟 | 炒菜、点蚊香 / 线香 |
+| `steam` / `boil` | 2 水汽 | 烧水、浴室蒸汽 |
+| `heat` / `burn` / `fire` | 3 燃烧 | 电吹风近距离加热、明火 |
+
+### 7.3 采集要求
+
+| 要求 | 说明 |
+|---|---|
+| **采样率 1 Hz** | 与端侧 `Features.SAMPLE_SEC = 1` 一致，不可改 |
+| **单次时长 ≥ 60 秒** | 12 秒窗口滑窗后才有足够样本，建议每类 2~5 分钟 |
+| **按会话分文件** | 一次采集一个文件，**不要跨场景拼接**（切分数据集时按会话分层，否则滑窗重叠会泄漏） |
+| **两个节点同时在跑** | N02 掉线时 `smoke` 全是 0，样本作废 |
+| **每类建议量** | 至少 300 窗（约 5 分钟有效数据），少于 100 窗模型学不出形态差异 |
+
+**本项目 19 个日志的分布**：正常 2 / 油烟(cooking+incense) 9 / 水汽(steam) 3 / 燃烧(heat) 4，共切出 **2791 个滑窗 / 16 个会话**。
+
+### 7.4 采集注意
+
+- **同一场景多次采集要分开命名**（`normal_01.log`、`normal_02.log`）
+- **避免刚点火的瞬间就停**——燃烧类的特征在 3~8 秒内才显现
+- **烧水和蒸汽要贴近水壶**，离太远传感器响应不到
+- **采集时不要动执行器**（风扇会把烟雾吹散，导致标签与特征不符）
+
+---
+
+## 八、训练与导出
+
+### 8.1 环境
+
+```bash
+conda create -n msenv python=3.8 -y
+conda activate msenv
+pip install mindspore==2.0.0 numpy pillow
+```
+
+> MindSpore 2.x 对 Python 版本敏感，**Python 3.8 + MindSpore 2.0.0** 是已验证组合。
+
+### 8.2 构建数据集
+
+```bash
+cd ai
+python build_dataset.py --dir ../data/raw --out data.npz
+```
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `--dir` | `data/raw` | 日志目录 |
+| `--out` | `data.npz` | 输出文件 |
+| `--stride` | 1 | 滑窗步长（1 = 最大样本数） |
+| `--min-smoke` | 30.0 | 烟雾通道最小值，用于剔除无效样本 |
+| `--dry-run` | — | 只统计不写文件 |
+
+**输出**：`X`（N × 8 × 12，原始物理量）、`y`（N，0~3）、`sess`（会话 ID，用于分层切分）。
+
+### 8.3 训练
+
+```bash
+python train.py --data data.npz --epochs 100 --export
+```
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `--data` | — | `build_dataset.py` 的输出；留空则用合成数据（仅验证流程） |
+| `--epochs` | 40 | 本项目用 100，配合早停（耐心 15 轮） |
+| `--batch` | 32 | — |
+| `--lr` | 3e-4 | 配合梯度裁剪 1.0 |
+| `--out` | `fire_model` | 输出前缀 |
+| `--export` | — | 训练完自动导出 MindIR |
+| `--export-only` | — | 跳过训练，只从 `.ckpt` 导出 |
+| `--class-weight` | — | 逆频率类别加权（**实测更差，不建议开**） |
+
+**本项目实测**：`val_acc = 0.9491`，参数量 **5124**。产物为 `fire_model_best.ckpt` 与 `fire_model.mindir`。
+
+### 8.4 转换成端侧模型
+
+```bash
+converter_lite \
+  --fmk=MINDIR \
+  --modelFile=fire_model.mindir \
+  --outputFile=fire_model \
+  --inputShape="x:1,8,12" \
+  --saveType=MINDIR_LITE
+```
+
+产出 `fire_model.ms`（约 27 KB），放入 `harmony-cloud-app/entry/src/main/resources/rawfile/`。
+
+**⚠️ 转换后必须做端侧自检**：转换器对不支持的算子只打 WARNING 不报错，模型可能被静默固化为常量输出。这就是 5.1 节自检机制的由来。
+
+### 8.5 完整复现链
+
+```
+data/raw/*.log
+   ↓  build_dataset.py --dir ../data/raw --out data.npz
+data.npz  (2791 × 8 × 12)
+   ↓  train.py --data data.npz --epochs 100 --export
+fire_model_best.ckpt + fire_model.mindir
+   ↓  converter_lite --fmk=MINDIR --inputShape="x:1,8,12"
+fire_model.ms  (27 KB)
+   ↓  放入 resources/rawfile/ + 温度标定 τ=0.25
+端侧推理（3 ms）
+```
+
+---
+
+## 九、技术栈
 
 | 层 | 选型 | 许可 |
 |---|---|---|
@@ -186,7 +327,7 @@ data/raw/                   原始采集日志（19 个 .log，约 1 Hz）
 
 ---
 
-## 八、断网时的行为
+## 十、断网时的行为
 
 | 场景 | 采集 | 端侧判定 | 联动告警 | 云端建议 |
 |---|---|---|---|---|
@@ -198,7 +339,7 @@ data/raw/                   原始采集日志（19 个 .log，约 1 Hz）
 
 ---
 
-## 九、已知限制
+## 十一、已知限制
 
 | 限制 | 说明 |
 |---|---|
@@ -210,7 +351,7 @@ data/raw/                   原始采集日志（19 个 .log，约 1 Hz）
 
 ---
 
-## 十、致谢与许可
+## 十二、致谢与许可
 
 本项目基于以下开源项目构建：
 
