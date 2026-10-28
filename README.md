@@ -145,9 +145,29 @@ harmony-cloud-app/          端侧应用（ArkTS）
     pages/Index.ets           四页签看板
   entry/src/main/resources/rawfile/
     fire_model.ms             端侧模型（27 KB）
+
+firmware/                   设备端固件（BearPi-HM Nano 2 / WS63）
+  mqtt_node.c                 采集 + MQTT 上报 + 本地安全逻辑
+  E53_IA1.c / E53_SF1.c       E53 扩展板驱动（来自 BearPi SDK）
+  wifi_connect.c              WiFi 连接
+  config.h                    板型、节点 ID、WiFi、Broker
+
+ai/                         训练与导出
+  build_dataset.py            日志解析 -> 8 通道特征 -> 滑窗样本
+  train.py                    FireCNN 定义、训练、导出 MindIR
+  data.npz                    2791 个滑窗样本（16 会话）
+  fire_model_best.ckpt        最优权重
+  fire_model.mindir           导出中间格式
+  fire_model.ms               端侧 .ms 模型
+
+data/raw/                   原始采集日志（19 个 .log，约 1 Hz）
+  normal_*.log                正常
+  cooking_*.log               油烟
+  steam_*.log                 水汽
+  heat_*.log                  加热 / 燃烧
 ```
 
-> 设备端固件（BearPi-HM Nano 2 / E53_IA1 · E53_SF1）另行维护，不在本仓库中。
+**复现步骤**：`data/raw/*.log` → `build_dataset.py` → `data.npz` → `train.py --export` → `fire_model.mindir` → `converter_lite` → `fire_model.ms` → 放入 `harmony-cloud-app/entry/src/main/resources/rawfile/`。
 
 ---
 
