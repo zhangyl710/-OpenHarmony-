@@ -145,13 +145,9 @@ harmony-cloud-app/          端侧应用（ArkTS）
     pages/Index.ets           四页签看板
   entry/src/main/resources/rawfile/
     fire_model.ms             端侧模型（27 KB）
-
-hardware/firmware/
-  mqtt_node/                  双节点固件（E53_IA1 / E53_SF1）
-    mqtt_node.c               采集 + MQTT 上报 + 本地安全逻辑
-    config.h                  板型、节点 ID、WiFi、Broker
-  bearpi_nano2_sensor/        早期 UDP 方案（保留作对比）
 ```
+
+> 设备端固件（BearPi-HM Nano 2 / E53_IA1 · E53_SF1）另行维护，不在本仓库中。
 
 ---
 
