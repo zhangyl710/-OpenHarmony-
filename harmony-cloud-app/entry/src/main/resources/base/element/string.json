@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "星枢 SparkHub 华为云环境看板"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "全屋环境看板"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "星枢"
+    }
+  ]
+}

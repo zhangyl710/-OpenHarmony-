@@ -1,0 +1,9 @@
+{
+  // 必须与工程级 oh-package.json5 的 modelVersion 保持一致，否则报错 00303028
+  "modelVersion": "6.0.0",
+  "dependencies": {},
+  "execution": {},
+  "logging": {},
+  "debugging": {},
+  "nodeOptions": {}
+}

@@ -1,0 +1,53 @@
+# ═══════════════ 依赖包 ═══════════════
+# 由 npm install / ohpm install 重建，不入库
+node_modules/
+oh_modules/
+
+# ═══════════════ 构建产物 ═══════════════
+build/
+.hvigor/
+.preview/
+.cxx/
+.test/
+previewer/
+*.hap
+*.hsp
+*.app
+*.har
+*.abc
+*.map
+
+# ═══════════════ 大体积二进制 ═══════════════
+# 注意：不排除 *.ms —— fire_model.ms 是端侧推理必需资源
+*.npz
+*.ckpt
+*.mindir
+*.onnx
+*.pt
+*.pth
+
+# ═══════════════ IDE ═══════════════
+.idea/
+.vscode/
+*.iml
+local.properties
+oh-package-lock.json5
+
+# ═══════════════ 操作系统 ═══════════════
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ═══════════════ 日志与临时文件 ═══════════════
+*.log
+*.tmp
+*.bak
+*~
+~$*
+
+# ═══════════════ 签名与私钥 ═══════════════
+*.p12
+*.cer
+*.p7b
+*.jks
+signing/

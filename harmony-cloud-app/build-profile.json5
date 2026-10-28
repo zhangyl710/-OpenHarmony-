@@ -1,0 +1,59 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "material": {
+          "certpath": "C:/Users/zzzyl/.ohos/config/openharmony/default_harmony-cloud-app_W0gg1UeZW2WS5-sfW6oBVUUR7iUWXxC1LHxgtl-C20Q=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001AF669AD0129D0311D649788ED2AEB39E5381614750BC7D94AB9B9E67F6CFE0F4549D8B93EE12F",
+          "profile": "C:/Users/zzzyl/.ohos/config/openharmony/default_harmony-cloud-app_W0gg1UeZW2WS5-sfW6oBVUUR7iUWXxC1LHxgtl-C20Q=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:/Users/zzzyl/.ohos/config/openharmony/default_harmony-cloud-app_W0gg1UeZW2WS5-sfW6oBVUUR7iUWXxC1LHxgtl-C20Q=.p12",
+          "storePassword": "0000001AD4BE1C50705495BA570CC08F257A135ACFEB3A8567110DF7A2855A52B282837ED2EEAE97AAE9"
+        }
+      }
+    ],
+    "products": [
+      {
+        // runtimeOS 为 OpenHarmony 时必须使用整数 SDK 版本号。
+        // API 20 = OpenHarmony 6.0（本机 Purple Pi OH 刷的就是 6.0）。
+        // 对照：5.0.0→12  5.0.2→14  5.0.3→15  5.1.0→18  6.0→20
+        "name": "default",
+        "signingConfig": "default",
+        "compatibleSdkVersion": 20,
+        "compileSdkVersion": 20,
+        "targetSdkVersion": 20,
+        "runtimeOS": "OpenHarmony",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": false
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

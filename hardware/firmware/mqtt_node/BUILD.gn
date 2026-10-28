@@ -1,0 +1,71 @@
+# OpenHarmony 轻量系统组件定义
+#
+# 放置位置：
+#   device/board/bearpi/bearpi_hm_nano_2/app/sparkhub_mqtt/BUILD.gn
+#
+# 目录里应该有：
+#   BUILD.gn  config.h  mqtt_node.c
+#   E53_IA1.c / E53_IA1.h      ← 从 app/C2_e53_ia1_temp_humi_pls/src/ 拷过来
+#   E53_SF1.c / E53_SF1.h      ← 从 app/C1_e53_sf1_mq2/src/ 拷过来
+#   wifi_connect.c / .h        ← 从 app/D9_iot_cloud_oc_infrared/src/ 拷过来
+#
+# 然后在同级 app/BUILD.gn 的 features 里加上：
+#   "sparkhub_mqtt:mqtt_node",
+# ⚠️ 同时把其他 example 全部注释掉，尤其是 E5/E6
+#    （它们各带一份 E53_IA1.c / E53_SF1.c，会和我们重名冲突）
+
+static_library("mqtt_node") {
+  # ── 只有这 4 个本地文件 ──
+  #
+  # MQTT 的实现全部来自 SDK 的 libiot_link.a，我们一个 paho 源文件都不编。
+  # 原因（踩过的坑，别再往回改）：
+  #   1. SDK 的 libmqtt.a 是 paho 完整版，MQTTClient_create 在 WS63 上
+  #      返回 -4 = PAHO_MEMORY_ERROR（内部 4 个 semaphore / memset_s / List 建不起来）
+  #   2. 自己编 paho MQTTClient-C 会和 libiot_link.a 里的同名符号撞车：
+  #        MQTTClientInit / MQTTConnect / MQTTPublish / MQTTSubscribe ...  (MQTTClient.c.obj)
+  #        ThreadStart / TimerInit / TimerCountdownMS / Mqtt_Mutex*       (paho_osdepends.c.obj)
+  #        MQTTPacket_encode / bufchar                                    (libmqtt.a MQTTPacket.c.obj)
+  #      而 libiot_link.a 是 SDK 必链的，去不掉
+  #   3. 正路：用华为 iot_link 的 mqtt_al 抽象层 —— 应用层只管调
+  #        mqtt_imp_init() / mqtt_al_init() / mqtt_al_connect()
+  #        mqtt_al_publish() / mqtt_al_subscribe() / mqtt_al_check_status()
+  #      网络层（socket / 重连 / keepalive）它已经封好了
+  sources = [
+    "mqtt_node.c",
+    "E53_IA1.c",
+    "E53_SF1.c",
+    "wifi_connect.c",
+  ]
+
+  include_dirs = [
+    ".",
+
+    # 华为 iot_link 的 MQTT 抽象层头文件（mqtt_al.h / dtls_al.h）
+    "//device/soc/hisilicon/ws63v100/sdk/open_source/iot_link/inc",
+
+    # mqtt_imp_init() 的声明（paho_mqtt_port.h）
+    "//device/soc/hisilicon/ws63v100/sdk/open_source/iot_link/network/mqtt/paho_mqtt/port",
+
+    # E53 驱动 + iot 硬件接口（照抄官方 C1/C2 example）
+    "//base/iothardware/peripheral/interfaces/inner_api",
+    "//device/board/bearpi/bearpi_hm_nano_2/iot_hardware_hals/include",
+
+    # ⚠️ Wi-Fi 只能用这一个！SDK 里也有同名 wifi_device.h，
+    #    但类型名不同（没有 WifiLinkedInfo），加进来会抢先匹配导致编译失败
+    "//foundation/communication/wifi_lite/interfaces/wifiservice",
+
+    # cJSON
+    "//third_party/cJSON",
+
+    # OpenHarmony 基础
+    "//utils/native/lite/include",
+    "//kernel/liteos_m/kal/cmsis",
+  ]
+
+  # 不再需要 ldflags = [ "-lmqtt" ]，
+  # libiot_link.a 由 SDK 自动链入，符号按需拉取。
+
+  cflags = [
+    "-Wno-unused-parameter",
+  ]
+}

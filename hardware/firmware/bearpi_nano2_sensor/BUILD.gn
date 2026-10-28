@@ -1,0 +1,31 @@
+# OpenHarmony 轻量系统组件定义
+#
+# 放置位置（把小熊派源码树里的小写路径换成你自己的）：
+#   applications/sample/wifi-iot/app/sparkhub_node/BUILD.gn
+#
+# 然后在同级目录 applications/sample/wifi-iot/app/BUILD.gn 的 features 里加入：
+#   "sparkhub_node:sensor_node"
+
+static_library("sensor_node") {
+  sources = [
+    "sensor_node.c",
+    "sht40.c",
+    "relay.c",
+    "udp_link.c",
+  ]
+
+  # ⚠️ 各路径以你的 OpenHarmony 源码树实际结构为准。
+  # 下面的路径在 3.x 的 mini 系统源码树上可用；换版本时若提示找不到头文件，
+  # 用 `find . -name iot_i2c.h` 之类的命令定位后替换。
+  include_dirs = [
+    "//utils/native/lite/include",
+    "//kernel/liteos_m/kal/cmsis",
+    "//base/iot_hardware/interfaces/kits/wifiiot_lite",
+    "//foundation/communication/wifi_lite/interfaces/wifiservice",
+    "//third_party/lwip/src/include",
+  ]
+
+  cflags = [
+    "-Wno-unused-parameter",
+  ]
+}

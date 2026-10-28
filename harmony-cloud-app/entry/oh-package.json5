@@ -1,0 +1,13 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "星枢看板入口模块",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    // OpenHarmony 三方库中心仓的 MQTT 客户端（基于 paho.mqtt.c 封装）
+    // 装依赖：在本目录执行  ohpm install
+    "@ohos/mqtt": "2.0.18"
+  }
+}
